@@ -47,5 +47,7 @@ The calculations are based on the following timeline of petrol prices in Pakista
 Because this app relies entirely on frontend code and public APIs, setup is instantaneous.
 
 1. Clone the repository:
+1. Clone the repository:
+
    ```bash
-   git clone [https://github.com/yourusername/hu-commute-calculator.git](https://github.com/basilsaeedbari/hu-commute-calculator.git)
+   git clone https://github.com/basilsaeedbari/hu-commute-calculator.git
