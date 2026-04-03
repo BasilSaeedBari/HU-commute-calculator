@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Habib Commute Cost Calculator (Hybrid Map)</title>
+    <title>Habib Commute Cost Calculator</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -22,7 +22,7 @@
             padding: 2rem;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            max-width: 600px;
+            max-width: 650px; /* Slightly wider for the expanded table */
             width: 100%;
         }
         h2 { margin-top: 0; color: #1a1a1a; }
@@ -62,6 +62,13 @@
             margin-bottom: 0.5rem;
         }
         .map-hint { font-size: 0.85rem; color: #666; margin-top: 0; }
+        
+        .override-box {
+            background-color: #e8f0fe;
+            padding: 1rem;
+            border-radius: 6px;
+            border-left: 4px solid #1a73e8;
+        }
 
         .btn-primary {
             width: 100%;
@@ -74,6 +81,7 @@
             font-weight: bold;
             cursor: pointer;
             transition: background 0.2s;
+            margin-top: 1rem;
         }
         .btn-primary:hover { background-color: #b3261d; }
         
@@ -88,9 +96,12 @@
             border-radius: 4px;
         }
         .card.bad-news { border-left-color: #d93025; background: #fce8e6; }
-        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        
+        /* Table Styles Update */
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.95rem; }
         th, td { text-align: right; padding: 0.5rem; border-bottom: 1px solid #ddd; }
-        th { text-align: left; }
+        th:first-child, td:first-child { text-align: left; }
     </style>
 </head>
 <body>
@@ -105,7 +116,7 @@
             <button class="btn-secondary" onclick="searchLocation()">Search</button>
         </div>
         <div id="map"></div>
-        <p class="map-hint">📍 Tap the map or <strong>drag the pin</strong> to set your exact starting point.</p>
+        <p class="map-hint">📍 Tap the map or drag the pin to set your exact starting point.</p>
     </div>
 
     <div class="form-group">
@@ -113,21 +124,31 @@
         <input type="number" id="kml" placeholder="e.g., 13" required>
     </div>
 
+    <div class="form-group override-box">
+        <label for="manual-km">3. Quick Override (Optional)</label>
+        <p class="map-hint" style="margin-bottom: 0.5rem;">Already know your distance? Type it here to skip the map.</p>
+        <input type="number" step="0.1" id="manual-km" placeholder="e.g., 15.5 km">
+    </div>
+
     <button class="btn-primary" onclick="calculateDamage()">Calculate The Damage</button>
     <div id="loading">Calculating...</div>
 
     <div id="results">
         <div class="card" id="route-info"></div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Price Timeline</th>
-                    <th>Rate (Rs/L)</th>
-                    <th>Cost / Week</th>
-                </tr>
-            </thead>
-            <tbody id="cost-table"></tbody>
-        </table>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Rate</th>
+                        <th>One Way</th>
+                        <th>Per Day</th>
+                        <th>Per Week</th>
+                    </tr>
+                </thead>
+                <tbody id="cost-table"></tbody>
+            </table>
+        </div>
         <div class="card bad-news" id="summary"></div>
     </div>
 </div>
@@ -142,33 +163,21 @@
         attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // Habib University Coordinates & Marker
     const HU_LAT = 24.9056;
     const HU_LON = 67.1382;
     L.marker([HU_LAT, HU_LON]).addTo(map).bindPopup("Habib University");
 
     let userMarker = null;
 
-    // Function to place/update the user marker
     function setUserMarker(lat, lon, zoomIn = false) {
-        if (userMarker) {
-            map.removeLayer(userMarker);
-        }
-        // Create a DRAGGABLE marker
+        if (userMarker) { map.removeLayer(userMarker); }
         userMarker = L.marker([lat, lon], { draggable: true }).addTo(map);
         userMarker.bindPopup("Starting Point").openPopup();
-        
-        if (zoomIn) {
-            map.setView([lat, lon], 15); // Zoom in closer when searched
-        }
+        if (zoomIn) { map.setView([lat, lon], 15); }
     }
 
-    // Allow user to tap the map to move the pin
-    map.on('click', function(e) {
-        setUserMarker(e.latlng.lat, e.latlng.lng);
-    });
+    map.on('click', function(e) { setUserMarker(e.latlng.lat, e.latlng.lng); });
 
-    // 2. Search Text to drop the initial pin
     async function searchLocation() {
         const text = document.getElementById('location-text').value;
         if (!text) return;
@@ -177,13 +186,14 @@
         document.getElementById('loading').innerText = 'Searching...';
 
         try {
-            // Force search inside Karachi to make it accurate
             const query = encodeURIComponent(text + ", Karachi, Pakistan");
             const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
             const data = await res.json();
 
             if (data.length > 0) {
                 setUserMarker(data[0].lat, data[0].lon, true);
+                // Clear manual override if they use search
+                document.getElementById('manual-km').value = ''; 
             } else {
                 alert("Could not find that location. Try being more general, then drag the pin.");
             }
@@ -194,12 +204,10 @@
         }
     }
 
-    // Allow hitting "Enter" in the search box
     document.getElementById('location-text').addEventListener('keypress', function (e) {
         if (e.key === 'Enter') searchLocation();
     });
 
-    // 3. The Calculation Logic
     const prices = [
         { desc: 'Feb 1, 2026', rate: 253.17 },
         { desc: 'Feb 16, 2026', rate: 258.17 },
@@ -209,14 +217,23 @@
     ];
 
     async function calculateDamage() {
-        if (!userMarker) {
-            alert("Please search for a location or click the map to drop a pin!");
+        const kmlInput = parseFloat(document.getElementById('kml').value);
+        const manualKmInput = parseFloat(document.getElementById('manual-km').value);
+
+        if (!kmlInput) {
+            alert("Please enter your Km/L average!");
             return;
         }
 
-        const kmlInput = parseFloat(document.getElementById('kml').value);
-        if (!kmlInput) {
-            alert("Please enter your Km/L");
+        // Logic branching: If manual override is filled, skip the map API.
+        if (manualKmInput && manualKmInput > 0) {
+            renderResults(manualKmInput, kmlInput);
+            return;
+        }
+
+        // If no manual override, fall back to map data.
+        if (!userMarker) {
+            alert("Please drop a pin on the map, OR type in your distance manually in step 3.");
             return;
         }
 
@@ -224,7 +241,6 @@
         document.getElementById('loading').innerText = 'Calculating driving route...';
         document.getElementById('results').style.display = 'none';
 
-        // Get the current location of the marker (even if the user dragged it)
         const selectedLat = userMarker.getLatLng().lat;
         const selectedLon = userMarker.getLatLng().lng;
 
@@ -239,7 +255,7 @@
             }
 
             const distanceKm = (routeData.routes[0].distance / 1000).toFixed(1);
-            renderResults(distanceKm, kmlInput);
+            renderResults(parseFloat(distanceKm), kmlInput);
 
         } catch (error) {
             console.error(error);
@@ -254,7 +270,7 @@
         
         const litersPerTrip = distance / kml;
         document.getElementById('route-info').innerHTML = `
-            <strong>One-way Distance:</strong> ${distance} km<br>
+            <strong>One-way Distance:</strong> ${distance.toFixed(1)} km<br>
             <strong>Fuel Used (One-way):</strong> ${litersPerTrip.toFixed(2)} Liters
         `;
 
@@ -263,16 +279,20 @@
         let aprilCost = 0;
 
         prices.forEach(p => {
-            const weeklyCost = (litersPerTrip * p.rate * 2) * 5; // Round trip, 5 days
+            const oneWayCost = litersPerTrip * p.rate;
+            const dailyCost = oneWayCost * 2;
+            const weeklyCost = dailyCost * 5; // 5-day week
 
             if (p.desc === 'Feb 1, 2026') febCost = weeklyCost;
             if (p.desc === 'Apr 3, 2026') aprilCost = weeklyCost;
 
             tableHTML += `
                 <tr>
-                    <th>${p.desc}</th>
-                    <td>Rs ${p.rate.toFixed(2)}</td>
-                    <td><strong>Rs ${weeklyCost.toFixed(2)}</strong></td>
+                    <td>${p.desc}</td>
+                    <td>Rs ${p.rate.toFixed(1)}</td>
+                    <td>Rs ${oneWayCost.toFixed(0)}</td>
+                    <td>Rs ${dailyCost.toFixed(0)}</td>
+                    <td><strong>Rs ${weeklyCost.toFixed(0)}</strong></td>
                 </tr>
             `;
         });
@@ -284,7 +304,7 @@
         
         document.getElementById('summary').innerHTML = `
             <strong>The Damage:</strong><br>
-            Compared to February 1st, you are now paying <strong>Rs ${difference.toFixed(2)} MORE every single week</strong> just to commute.<br>
+            Compared to February 1st, you are now paying <strong>Rs ${difference.toFixed(0)} MORE every single week</strong> just to commute.<br>
             That is an <strong>${percentage.toFixed(1)}% increase</strong> in your travel expenses.
         `;
     }
