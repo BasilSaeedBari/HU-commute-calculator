@@ -36,6 +36,7 @@ The calculations are based on the following timeline of petrol prices in Pakista
 
 | Date | Rate (Rs/L) |
 | :--- | :--- |
+| **April 03, 2026** | 	378.41 |
 | **April 3, 2026** | Rs 458.40 |
 | **March 7, 2026** | Rs 321.17 |
 | **March 1, 2026** | Rs 266.17 |
